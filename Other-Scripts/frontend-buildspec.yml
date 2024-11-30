@@ -1,0 +1,22 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - echo "Installing dependencies (if any)"
+  build:
+    commands:
+      - echo "Building frontend"
+      - mkdir build
+      - cp index.html ./build/
+      - cp frontend.js ./build/
+      - cp CHANGELOG.md ./build/
+      - cp README.md ./build/
+      - cp apigClient.js ./build/
+      - cp -r lib ./build/
+  post_build:
+    commands:
+      - echo "Deploying to S3 bucket:adrian-photo-drive"
+      - aws s3 sync ./build s3://adrian-photo-drive --delete
+artifacts:
+  files:
+    - '**/*'

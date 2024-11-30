@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Photo Search</title>
+    <style>
+        /* Add some basic styling */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            margin-top: 20px;
+            color: #555;
+        }
+        #searchResults, #uploadStatus {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+        }
+        img {
+            margin: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .photo-card {
+            display: inline-block;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Photo Search Applications</h1>
+
+    <!-- Search Section -->
+    <h2>Search for Photos</h2>
+    <form id="searchForm">
+        <label for="query">Search Query:</label>
+        <input type="text" id="query" name="query" required placeholder="e.g., City, Beach" />
+        <button type="submit">Search</button>
+    </form>
+    <div id="searchResults">
+        <p>Search results will appear here...</p>
+    </div>
+
+    <!-- Upload Section -->
+    <h2>Upload a Photo</h2>
+    <form id="uploadForm">
+        <label for="photo">Select Photo:</label>
+        <input type="file" id="photo" name="photo" accept="image/*" required />
+        <br />
+        <label for="customLabels">Custom Labels (comma-separated):</label>
+        <input type="text" id="customLabels" name="customLabels" placeholder="e.g., Sunset, Nature" />
+        <br />
+        <button type="submit">Upload</button>
+    </form>
+    <div id="uploadStatus">
+        <p>Upload status will appear here...</p>
+    </div>
+
+    <!-- External Libraries -->
+    <script src="lib/CryptoJS/rollups/crypto-js.js"></script>
+    <script src="lib/CryptoJS/rollups/sha256.js"></script>
+    <script src="lib/CryptoJS/components/hmac.js"></script>
+    <script src="lib/CryptoJS/components/enc-base64.js"></script>
+    <script src="lib/axios/dist/axios.standalone.js"></script>
+    <script src="lib/url-template/url-template.js"></script>
+    <script src="lib/apiGatewayCore/utils.js"></script>
+    <script src="lib/apiGatewayCore/simpleHttpClient.js"></script>
+    <script src="lib/apiGatewayCore/sigV4Client.js"></script>
+    <script src="lib/apiGatewayCore/apiGatewayClient.js"></script>
+
+    <!-- Application Scripts -->
+    <script src="apigClient.js"></script>
+    <script src="frontend.js"></script>
+</body>
+</html>

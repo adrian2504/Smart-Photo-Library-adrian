@@ -1,0 +1,236 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template with inline Lambda code.
+
+Resources:
+  # S3 Bucket for Photo Storage
+  PhotoStorageBucketCFNew3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "photo-storage-bucket-cf-new3-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+
+  # S3 Bucket for Frontend Hosting
+  FrontendBucketCFNew3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "frontend-bucket-cf-new3-${AWS::AccountId}-${AWS::Region}"
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+
+  # S3 Bucket for CodeBuild
+  LambdaCodeBuildBucketCFNew3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "lambda-codebuild-bucket-cf-new3-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: false
+
+  # Lambda Function for Indexing Photos
+  IndexPhotosFunctionCFNew3:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: index-photos-cf-new3
+      Runtime: python3.8
+      Handler: index.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole"
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          from requests_aws4auth import AWS4Auth
+          import requests
+
+          def lambda_handler(event, context):
+              s3_client = boto3.client('s3')
+              rekognition_client = boto3.client('rekognition')
+
+              # Extract bucket name and key from the event
+              bucket = event['Records'][0]['s3']['bucket']['name']
+              key = event['Records'][0]['s3']['object']['key']
+
+              try:
+                  # Fetch image from S3
+                  response = s3_client.get_object(Bucket=bucket, Key=key)
+                  image_data = response['Body'].read()
+
+                  # Detect labels using Rekognition
+                  rekognition_response = rekognition_client.detect_labels(
+                      Image={'Bytes': image_data}, MaxLabels=10
+                  )
+                  labels = [label['Name'] for label in rekognition_response['Labels']]
+
+                  # Log detected labels
+                  print(f"Detected labels: {labels}")
+
+                  # Index data in Elasticsearch
+                  es_host = 'search-photos-cf-new3.amazonaws.com'
+                  awsauth = AWS4Auth(
+                      boto3.Session().get_credentials().access_key,
+                      boto3.Session().get_credentials().secret_key,
+                      'us-east-1',
+                      'es',
+                      session_token=boto3.Session().get_credentials().token
+                  )
+                  index_data = {
+                      'objectKey': key,
+                      'bucket': bucket,
+                      'createdTimestamp': event['Records'][0]['eventTime'],
+                      'labels': labels
+                  }
+                  es_url = f"https://{es_host}/photos/_doc"
+                  headers = {"Content-Type": "application/json"}
+                  es_response = requests.post(es_url, auth=awsauth, json=index_data, headers=headers)
+                  es_response.raise_for_status()
+
+                  return {"statusCode": 200, "body": json.dumps("Indexing Success")}
+
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return {"statusCode": 500, "body": json.dumps("Indexing Failed")}
+
+  # Lambda Function for Searching Photos
+  SearchPhotosFunctionCFNew3:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: search-photos-cf-new3
+      Runtime: python3.8
+      Handler: search.handler
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LambdaExecutionRole"
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          from requests_aws4auth import AWS4Auth
+          import requests
+
+          def lambda_handler(event, context):
+              query = event.get('queryStringParameters', {}).get('q', '')
+              if not query:
+                  return {
+                      'statusCode': 400,
+                      'body': json.dumps({'message': 'No query provided'})
+                  }
+
+              region = 'us-east-1'
+              es_host = 'search-photos-cf-new3.amazonaws.com'
+              search_query = {
+                  "query": {
+                      "multi_match": {
+                          "query": query,
+                          "fields": ["labels"]
+                      }
+                  }
+              }
+
+              try:
+                  awsauth = AWS4Auth(
+                      boto3.Session().get_credentials().access_key,
+                      boto3.Session().get_credentials().secret_key,
+                      region,
+                      'es',
+                      session_token=boto3.Session().get_credentials().token
+                  )
+                  response = requests.get(
+                      f"https://{es_host}/photos/_search",
+                      auth=awsauth,
+                      headers={'Content-Type': 'application/json'},
+                      json=search_query
+                  )
+                  response.raise_for_status()
+                  results = response.json()['hits']['hits']
+
+                  return {"statusCode": 200, "body": json.dumps({'results': results})}
+
+              except Exception as e:
+                  print(f"Error querying Elasticsearch: {str(e)}")
+                  return {"statusCode": 500, "body": json.dumps("Search Failed")}
+
+  # API Gateway
+  SearchPhotosAPICFNew3:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: search-photos-api-cf-new3
+
+  # API Resource: /photos/{objectName} (PUT)
+  PhotosResourceCFNew3:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt SearchPhotosAPICFNew3.RootResourceId
+      PathPart: photos
+      RestApiId: !Ref SearchPhotosAPICFNew3
+
+  ObjectNameResourceCFNew3:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref PhotosResourceCFNew3
+      PathPart: "{objectName}"
+      RestApiId: !Ref SearchPhotosAPICFNew3
+
+  PhotosPutMethodCFNew3:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref SearchPhotosAPICFNew3
+      ResourceId: !Ref ObjectNameResourceCFNew3
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IndexPhotosFunctionCFNew3.Arn}/invocations
+
+  # API Resource: /search (GET)
+  SearchResourceCFNew3:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt SearchPhotosAPICFNew3.RootResourceId
+      PathPart: search
+      RestApiId: !Ref SearchPhotosAPICFNew3
+
+  SearchGetMethodCFNew3:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref SearchPhotosAPICFNew3
+      ResourceId: !Ref SearchResourceCFNew3
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SearchPhotosFunctionCFNew3.Arn}/invocations
+
+  # Deploy API Gateway
+  ApiGatewayDeploymentCFNew3:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref SearchPhotosAPICFNew3
+      StageName: v1
+    DependsOn:
+      - PhotosPutMethodCFNew3
+      - SearchGetMethodCFNew3
+
+Outputs:
+  PhotoStorageBucket:
+    Description: Name of the S3 bucket for photo storage.
+    Value: !Ref PhotoStorageBucketCFNew3
+
+  FrontendBucketURL:
+    Description: URL of the S3 bucket for frontend hosting.
+    Value: !Sub "http://${FrontendBucketCFNew3}.s3-website-${AWS::Region}.amazonaws.com"
+
+  LambdaCodeBuildBucket:
+    Description: Name of the S3 bucket for Lambda CodeBuild artifacts.
+    Value: !Ref LambdaCodeBuildBucketCFNew3
+
+  APIGatewayBaseURL:
+    Description: Base URL of the API Gateway.
+    Value: !Sub "https://${SearchPhotosAPICFNew3}.execute-api.${AWS::Region}.amazonaws.com/v1"

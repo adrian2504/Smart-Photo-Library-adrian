@@ -1,0 +1,31 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.13
+    commands:
+      - echo "Installing dependencies"
+      - pip install -r index-photos/requirements.txt -t index-photos/
+      - pip install -r search-photos/requirements.txt -t search-photos/
+  build:
+    commands:
+      - echo "Zipping index-photos with dependencies"
+      - cd index-photos
+      - zip -r ../index-photos.zip .  # Include all files, including dependencies
+      - cd ..
+      - echo "Zipping search-photos with dependencies"
+      - cd search-photos
+      - zip -r ../search-photos.zip .  # Include all files, including dependencies
+      - cd ..
+      - echo "Uploading to S3"
+      - aws s3 cp index-photos.zip s3://lambda-codebuild-adrian/index-photos.zip
+      - aws s3 cp search-photos.zip s3://lambda-codebuild-adrian/search-photos.zip
+  post_build:
+    commands:
+      - echo "Updating Lambda functions"
+      - aws lambda update-function-code --function-name index-photos --s3-bucket lambda-codebuild-adrian --s3-key index-photos.zip
+      - aws lambda update-function-code --function-name search-photos --s3-bucket lambda-codebuild-adrian --s3-key search-photos.zip
+artifacts:
+  files:
+    - index-photos.zip
+    - search-photos.zip

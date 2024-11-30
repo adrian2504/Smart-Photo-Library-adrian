@@ -1,0 +1,245 @@
+---
+swagger: "2.0"
+info:
+  description: "AI Photo Search application, built during the Cloud and Big Data course\
+    \ at NYU University."
+  version: "1.0.0"
+  title: "PhotoSearchAPI"
+host: "arvc6smbml.execute-api.us-east-1.amazonaws.com"
+basePath: "/v1"
+schemes:
+- "https"
+paths:
+  /photos/{objectName}:
+    put:
+      produces:
+      - "application/json"
+      parameters:
+      - name: "Content-Type"
+        in: "header"
+        required: false
+        type: "string"
+      - name: "objectName"
+        in: "path"
+        required: true
+        type: "string"
+      responses:
+        "200":
+          description: "200 response"
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+      security:
+      - api_key: []
+      x-amazon-apigateway-integration:
+        credentials: "arn:aws:iam::503561431144:role/service-role/search-photos-role-saddhr27"
+        httpMethod: "PUT"
+        uri: "arn:aws:apigateway:us-east-1:s3:path/your-photo-bucket-adrian/{objectName}"
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        requestParameters:
+          integration.request.path.objectName: "method.request.path.objectName"
+        passthroughBehavior: "when_no_templates"
+        cacheNamespace: "xs6dd8"
+        cacheKeyParameters:
+        - "method.request.path.objectName"
+        type: "aws"
+    options:
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "Access-Control-Allow-Origin"
+        in: "header"
+        required: false
+        type: "string"
+      - name: "Access-Control-Allow-Headers"
+        in: "header"
+        required: false
+        type: "string"
+      - name: "Access-Control-Allow-Methods"
+        in: "header"
+        required: false
+        type: "string"
+      - name: "objectName"
+        in: "path"
+        required: true
+        type: "string"
+      responses:
+        "200":
+          description: "200 response"
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,PUT'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,x-amz-meta-customLabels'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        requestTemplates:
+          application/json: "{\"statusCode\": 200}"
+        passthroughBehavior: "when_no_match"
+        type: "mock"
+  /search:
+    get:
+      operationId: "searchPhotos"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "Access-Control-Allow-Origin"
+        in: "header"
+        required: false
+        type: "string"
+      - name: "Access-Control-Allow-Headers"
+        in: "header"
+        required: false
+        type: "string"
+      - name: "q"
+        in: "query"
+        required: true
+        type: "string"
+      - name: "Access-Control-Allow-Methods"
+        in: "header"
+        required: false
+        type: "string"
+      responses:
+        "200":
+          description: "200 response"
+          schema:
+            $ref: "#/definitions/SearchResponse"
+          headers:
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+        "500":
+          description: "500 response"
+          schema:
+            $ref: "#/definitions/Error"
+        "403":
+          description: "403 response"
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+      - api_key: []
+      x-amazon-apigateway-integration:
+        httpMethod: "POST"
+        uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:503561431144:function:search-photos/invocations"
+        passthroughBehavior: "when_no_match"
+        type: "aws_proxy"
+    options:
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      responses:
+        "200":
+          description: "200 response"
+          schema:
+            $ref: "#/definitions/Empty"
+          headers:
+            Access-Control-Allow-Origin:
+              type: "string"
+            Access-Control-Allow-Methods:
+              type: "string"
+            Access-Control-Allow-Headers:
+              type: "string"
+      x-amazon-apigateway-integration:
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,x-amz-meta-customLabels'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        requestTemplates:
+          application/json: "{\"statusCode\": 200}"
+        passthroughBehavior: "when_no_match"
+        type: "mock"
+  /search-photos:
+    x-amazon-apigateway-any-method:
+      responses:
+        "200":
+          description: "200 response"
+      x-amazon-apigateway-integration:
+        httpMethod: "POST"
+        uri: "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:503561431144:function:search-photos/invocations"
+        responses:
+          ".*":
+            statusCode: "200"
+        passthroughBehavior: "when_no_match"
+        type: "aws_proxy"
+securityDefinitions:
+  api_key:
+    type: "apiKey"
+    name: "x-api-key"
+    in: "header"
+definitions:
+  Empty:
+    type: "object"
+    title: "Empty Schema"
+  Error:
+    type: "object"
+    properties:
+      code:
+        type: "integer"
+        format: "int32"
+        description: "HTTP status code."
+      message:
+        type: "string"
+        description: "Error message explaining the failure."
+  Photo:
+    type: "object"
+    properties:
+      url:
+        type: "string"
+        description: "The URL of the photo in S3."
+      labels:
+        type: "array"
+        description: "Detected or custom labels for the photo."
+        items:
+          type: "string"
+  SearchResponse:
+    type: "object"
+    properties:
+      results:
+        type: "array"
+        items:
+          $ref: "#/definitions/Photo"
+x-amazon-apigateway-gateway-responses:
+  DEFAULT_4XX:
+    responseParameters:
+      gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,PUT'"
+      gatewayresponse.header.Access-Control-Expose-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,Access-Control-Allow-Origin,Access-Control-Allow-Methods,Access-Control-Allow-Headers,x-amz-meta-customLabels'"
+      gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+      gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,x-amz-meta-customLabels'"
+  DEFAULT_5XX:
+    responseParameters:
+      gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,PUT'"
+      gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+      gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,x-amz-meta-customLabels'"
+x-amazon-apigateway-binary-media-types:
+- "image/jpeg"
+- "image/jpg"
+- "image/png"
